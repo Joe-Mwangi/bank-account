@@ -2,7 +2,9 @@ namespace Classes;
 
 public class BankAccount
 {   
+    private List<Transaction> allTransactions = new List<Transaction>();
     private static int accountNumberSeed = 1000000000;
+
     public string Number { get; }
     public string Owner { get; set; }
     public decimal Balance 
@@ -18,13 +20,13 @@ public class BankAccount
 
     public BankAccount(string name, decimal initialBalance) 
     {
-        this.Owner = name;
-        this.Balance = initialBalance;
+        Owner = name;
         Number = (accountNumberSeed).ToString();
         accountNumberSeed++;
+
+        MakeDeposit(initialBalance, DateTime.Now, "initial balance");
     }
 
-    private List<Transaction> allTransactions = new List<Transaction>();
 
     public void MakeDeposit(decimal amount, DateTime date, string note)
     {
@@ -41,7 +43,7 @@ public class BankAccount
             throw new ArgumentOutOfRangeException(nameof(amount), "Amount of deposit must be positive");
         }
         if(Balance  - amount < 0) {
-            throw new InvalidOperationException(nameof(amount), "Not sufficient funds in your account");
+            throw new InvalidOperationException("Not sufficient funds in your account");
         }
         var withdrawal = new Transaction(-amount, date, note);
         allTransactions.Add(withdrawal);
