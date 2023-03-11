@@ -2,8 +2,8 @@ namespace Classes;
 
 public class BankAccount
 {   
-    private List<Transaction> allTransactions = new List<Transaction>();
-    private static int accountNumberSeed = 1000000000;
+    private List<Transaction> _allTransactions = new List<Transaction>();
+    private static int s_accountNumberSeed = 1000000000;
 
     public string Number { get; }
     public string Owner { get; set; }
@@ -11,20 +11,26 @@ public class BankAccount
     {
         get {
             decimal balance = 0;
-            foreach(var item in allTransactions) {
+            foreach(var item in _allTransactions) {
                 balance += item.Amount;
             }
             return balance;
         }
     }
 
-    public BankAccount(string name, decimal initialBalance) 
-    {
-        Owner = name;
-        Number = (accountNumberSeed).ToString();
-        accountNumberSeed++;
+    private readonly decimal _minimumBalance;
 
-        MakeDeposit(initialBalance, DateTime.Now, "initial balance");
+    public BankAccount(string name, decimal initialBalance) : this(name, initialBalance, 0) { }
+
+    public BankAccount(string name, decimal initialBalance, decimal minimumBalance)
+    {
+        Number = s_accountNumberSeed.ToString();
+        s_accountNumberSeed++;
+
+        Owner = name;
+        _minimumBalance = minimumBalance;
+        if (initialBalance > 0)
+            MakeDeposit(initialBalance, DateTime.Now, "Initial balance");
     }
 
 
@@ -34,19 +40,32 @@ public class BankAccount
             throw new ArgumentOutOfRangeException(nameof(amount), "Amount of deposit must be positive");
         }
         var deposit = new Transaction(amount, date, note);
-        allTransactions.Add(deposit);
+        _allTransactions.Add(deposit);
     }
 
     public void MakeWithdrawal(decimal amount, DateTime date, string note)
     {
-        if(amount <= 0) {
-            throw new ArgumentOutOfRangeException(nameof(amount), "Amount of deposit must be positive");
+        if (amount <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(amount), "Amount of withdrawal must be positive");
         }
-        if(Balance  - amount < 0) {
-            throw new InvalidOperationException("Not sufficient funds in your account");
+        Transaction? overdraftTransaction = CheckWithdrawalLimit(Balance - amount < _minimumBalance);
+        Transaction? withdrawal = new(-amount, date, note);
+        _allTransactions.Add(withdrawal);
+        if (overdraftTransaction != null)
+            _allTransactions.Add(overdraftTransaction);
+    }
+
+    protected virtual Transaction? CheckWithdrawalLimit(bool isOverdrawn)
+    {
+        if (isOverdrawn)
+        {
+            throw new InvalidOperationException("Not sufficient funds for this withdrawal");
         }
-        var withdrawal = new Transaction(-amount, date, note);
-        allTransactions.Add(withdrawal);
+        else
+        {
+            return default;
+        }
     }
     public string GetAccountHistory() 
     {
@@ -54,10 +73,11 @@ public class BankAccount
 
         decimal balance = 0;
         report.AppendLine("Date\tAmount\tBalance\tNote\t");
-        foreach(var item in allTransactions) {
+        foreach(var item in _allTransactions) {
             balance += item.Amount;
             report.AppendLine($"{item.Date.ToShortDateString()}\t{item.Amount}\t{balance}\t{item.Notes}");
         }
         return report.ToString();
     }
+    public virtual void PerformEndMonthTransactions() {}
 }
